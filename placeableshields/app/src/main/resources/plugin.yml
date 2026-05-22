@@ -1,0 +1,9 @@
+name: PlaceableShields
+version: '${version}'
+main: me.st4r.plugin.PlaceableShieldPlugin
+api-version: '1.21'
+commands:
+  shieldplace:
+    description: Toggle placeable shield placement for yourself
+    usage: /shieldplace <on|off|toggle|status>
+    aliases: [pshield]

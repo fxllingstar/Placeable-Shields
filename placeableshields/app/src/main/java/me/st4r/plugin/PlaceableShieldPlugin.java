@@ -1,10 +1,13 @@
 package me.st4r.plugin;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -34,8 +37,9 @@ public class PlaceableShieldPlugin extends JavaPlugin implements Listener {
     private NamespacedKey linkedEntityKey;
     private final Random random = new Random();
 
-    // All currently placed shield ArmorStand UUIDs — used by the projectile scanner
+
     private final Set<UUID> placedShields = new HashSet<>();
+    private final Set<UUID> placementDisabledPlayers = new HashSet<>();
 
     // -----------------------------------------------------------------------
     // TUNING CONSTANTS
@@ -122,6 +126,7 @@ public class PlaceableShieldPlugin extends JavaPlugin implements Listener {
         if (!player.isSneaking()) return;
         if (e.getHand() != EquipmentSlot.HAND) return;
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK && e.getAction() != Action.RIGHT_CLICK_AIR) return;
+        if (placementDisabledPlayers.contains(player.getUniqueId())) return;
 
         ItemStack itemToPlace = null;
         ItemStack mainHand = player.getInventory().getItemInMainHand();
@@ -196,6 +201,47 @@ public class PlaceableShieldPlugin extends JavaPlugin implements Listener {
 
         player.updateInventory();
         player.playSound(baseLoc, Sound.ITEM_SHIELD_BLOCK, 1.0f, 1.0f);
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!command.getName().equalsIgnoreCase("shieldplace")) return false;
+
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ChatColor.RED + "Only players can use this command.");
+            return true;
+        }
+
+        Player player = (Player) sender;
+
+        if (args.length == 0 || args[0].equalsIgnoreCase("toggle")) {
+            boolean disabledNow = togglePlacement(player);
+            sendToggleMessage(player, disabledNow);
+            return true;
+        }
+
+        if (args[0].equalsIgnoreCase("off")) {
+            placementDisabledPlayers.add(player.getUniqueId());
+            sendToggleMessage(player, true);
+            return true;
+        }
+
+        if (args[0].equalsIgnoreCase("on")) {
+            placementDisabledPlayers.remove(player.getUniqueId());
+            sendToggleMessage(player, false);
+            return true;
+        }
+
+        if (args[0].equalsIgnoreCase("status")) {
+            boolean disabled = placementDisabledPlayers.contains(player.getUniqueId());
+            player.sendMessage(disabled
+                    ? ChatColor.YELLOW + "Shield placement is currently disabled for you."
+                    : ChatColor.GREEN + "Shield placement is currently enabled for you.");
+            return true;
+        }
+
+        player.sendMessage(ChatColor.RED + "Usage: /shieldplace <on|off|toggle|status>");
+        return true;
     }
 
     // =======================================================================
@@ -356,6 +402,25 @@ public class PlaceableShieldPlugin extends JavaPlugin implements Listener {
             if (finalDmg > 0) {
                 stand.getWorld().playSound(stand.getLocation(), Sound.ITEM_SHIELD_BLOCK, 1.0f, 1.0f);
             }
+        }
+    }
+
+    private boolean togglePlacement(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (placementDisabledPlayers.contains(uuid)) {
+            placementDisabledPlayers.remove(uuid);
+            return false;
+        }
+
+        placementDisabledPlayers.add(uuid);
+        return true;
+    }
+
+    private void sendToggleMessage(Player player, boolean disabled) {
+        if (disabled) {
+            player.sendMessage(ChatColor.YELLOW + "Shield placement disabled. You can still use shields normally.");
+        } else {
+            player.sendMessage(ChatColor.GREEN + "Shield placement enabled.");
         }
     }
 
